@@ -48,13 +48,18 @@ def load_monitor_config(raw: dict) -> MonitorConfig:
     m = raw.get("monitor", {})
     return MonitorConfig(
         poll_interval_seconds=_get_env_int("FETCH_POLL_INTERVAL_SECONDS", m.get("poll_interval_seconds", 300)),
+        poll_interval_jitter_fraction=_get_env_float("FETCH_POLL_JITTER", m.get("poll_interval_jitter_fraction", 0.1)),
         startup_delay_seconds=_get_env_float("FETCH_STARTUP_DELAY_SECONDS", m.get("startup_delay_seconds", 2.0)),
         shutdown_timeout_seconds=_get_env_float("FETCH_SHUTDOWN_TIMEOUT_SECONDS", m.get("shutdown_timeout_seconds", 60.0)),
+        reconciliation_interval_cycles=_get_env_int("FETCH_RECONCILIATION_CYCLES", m.get("reconciliation_interval_cycles", 12)),
         log_level=LogLevel(m.get("log_level", "INFO").upper()),
         log_dir=_get_env_str("FETCH_LOG_DIR", m.get("log_dir", "logs")),
         status_file=_get_env_str("FETCH_STATUS_FILE", m.get("status_file", "monitor_data/status.json")),
         latest_snapshot_file=_get_env_str("FETCH_LATEST_SNAPSHOT", m.get("latest_snapshot_file", "monitor_data/latest.json")),
         latest_diff_file=_get_env_str("FETCH_LATEST_DIFF", m.get("latest_diff_file", "monitor_data/latest_diff.json")),
+        alerts_file=_get_env_str("FETCH_ALERTS_FILE", m.get("alerts_file", "monitor_data/alerts.json")),
+        consecutive_failures_alert_threshold=_get_env_int("FETCH_ALERT_FAILURES", m.get("consecutive_failures_alert_threshold", 5)),
+        schema_validation_alert_threshold=_get_env_int("FETCH_ALERT_SCHEMA", m.get("schema_validation_alert_threshold", 3)),
     )
 
 
@@ -99,6 +104,8 @@ def load_snapshot_config(raw: dict) -> SnapshotConfig:
         keep_days=_get_env_int("FETCH_SNAPSHOT_KEEP_DAYS", s.get("keep_days", 30)),
         history_dir=_get_env_str("FETCH_HISTORY_DIR", s.get("history_dir", "monitor_data/history")),
         max_count=_get_env_int("FETCH_HISTORY_MAX_COUNT", s.get("max_count", 1000)),
+        rollup_dir=_get_env_str("FETCH_ROLLUP_DIR", s.get("rollup_dir", "monitor_data/rollups")),
+        rollup_retention_days=_get_env_int("FETCH_ROLLUP_RETENTION_DAYS", s.get("rollup_retention_days", 0)),
     )
 
 

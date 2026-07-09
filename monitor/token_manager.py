@@ -21,6 +21,12 @@ logger = logging.getLogger("monitor.token")
 
 
 class TokenError(Exception):
+    """Token acquisition or validation failed."""
+    pass
+
+
+class CookiesDeadError(TokenError):
+    """The stored cookies have expired or been revoked server-side."""
     pass
 
 
@@ -42,6 +48,8 @@ class TokenManager:
         self._token: str | None = None
         self._token_fetched_at: float = 0.0
         self._refresh_count: int = 0
+        self._cookies_dead: bool = False
+        self._last_verify_error: str | None = None
 
     # ── Public API ──────────────────────────────────────────────────────────────
 
@@ -62,10 +70,11 @@ class TokenManager:
     def get_token(self) -> str:
         """
         Return a valid token, auto-refreshing if missing or too old.
-        Raises TokenError if refresh fails.
+        Raises TokenError if refresh fails; raises CookiesDeadError if
+        the cookies themselves have been revoked server-side.
         """
         token = self.load_token()
-        if token and not self._is_expired():
+        if token and not self._is_expired() and not self._cookies_dead:
             return token
 
         if token and self._is_expired():
@@ -73,6 +82,56 @@ class TokenManager:
 
         self.refresh()
         return self._get_and_validate_token()
+
+    def is_cookies_dead(self) -> bool:
+        """True if the last refresh detected cookies have been revoked server-side."""
+        return self._cookies_dead
+
+    def last_verify_error(self) -> str | None:
+        """Error message from the last verify-cookies or refresh attempt."""
+        return self._last_verify_error
+
+    def verify_cookies(self) -> bool:
+        """
+        Lightweight check: try to load the Playo auth page with the current
+        token. Returns True if the server accepts the token (HTTP 200/redirect),
+        False if it returns 401/403 (token rejected even though it may not be
+        past max_age).
+
+        Sets _cookies_dead to True if the server rejects the token.
+        """
+        import httpx
+
+        token = self.load_token()
+        if not token:
+            return False
+
+        try:
+            response = httpx.get(
+                f"{self.config.api_base}/booking-lab-public/availability/v1",
+                headers={
+                    "authorization": token,
+                    "accept": "application/json",
+                    "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                },
+                timeout=10.0,
+                follow_redirects=True,
+            )
+            if response.status_code in (200, 301, 302, 303, 307, 308):
+                self._cookies_dead = False
+                return True
+            if response.status_code in (401, 403):
+                logger.warning("verify_cookies: server rejected token (HTTP %d) - cookies may be dead", response.status_code)
+                self._cookies_dead = True
+                self._last_verify_error = f"HTTP {response.status_code} on verify"
+                return False
+            return False
+        except httpx.TimeoutException:
+            logger.warning("verify_cookies: request timed out")
+            return False
+        except Exception as exc:
+            logger.warning("verify_cookies: %s", exc)
+            return False
 
     def token_age_seconds(self) -> float | None:
         """Return age of current token in seconds, or None if no token."""
@@ -134,8 +193,16 @@ class TokenManager:
             raise TokenError(f"Failed to run refresh script: {e}")
 
         if result.returncode != 0:
-            logger.error("Token refresh stderr: %s", result.stderr)
-            raise TokenError(f"Token refresh script exited with code {result.returncode}")
+            stderr = result.stderr.strip()
+            logger.error("Token refresh stderr: %s", stderr)
+            if "cookies" in stderr.lower() or "expired" in stderr.lower():
+                self._cookies_dead = True
+                self._last_verify_error = stderr
+                raise CookiesDeadError(
+                    f"Cookies appear to be expired or revoked: {stderr}\n"
+                    "Please re-export fresh cookies from your browser."
+                )
+            raise TokenError(f"Token refresh script exited with code {result.returncode}: {stderr}")
 
         # Validate new token was written
         new_token = self.load_token()

@@ -1,13 +1,18 @@
 {
   "monitor": {
     "poll_interval_seconds": 300,
+    "poll_interval_jitter_fraction": 0.1,
     "startup_delay_seconds": 2.0,
     "shutdown_timeout_seconds": 60.0,
+    "reconciliation_interval_cycles": 12,
     "log_level": "INFO",
     "log_dir": "logs",
     "status_file": "monitor_data/status.json",
     "latest_snapshot_file": "monitor_data/latest.json",
-    "latest_diff_file": "monitor_data/latest_diff.json"
+    "latest_diff_file": "monitor_data/latest_diff.json",
+    "alerts_file": "monitor_data/alerts.json",
+    "consecutive_failures_alert_threshold": 5,
+    "schema_validation_alert_threshold": 3
   },
   "token": {
     "file": "tokens/current_token.txt",
@@ -32,6 +37,8 @@
   "snapshot": {
     "keep_days": 30,
     "history_dir": "monitor_data/history",
-    "max_count": 1000
+    "max_count": 1000,
+    "rollup_dir": "monitor_data/rollups",
+    "rollup_retention_days": 0
   }
 }

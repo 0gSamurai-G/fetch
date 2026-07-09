@@ -2,10 +2,12 @@
 scheduler.py — Infinite poll scheduler with graceful shutdown.
 
 Features:
-- Runs the fetch cycle every `poll_interval_seconds`
+- Runs the fetch cycle every `poll_interval_seconds` with optional jitter
+- Periodic full-state reconciliation every N cycles
 - Checks global backoff before each cycle
 - Handles SIGINT/SIGTERM for graceful shutdown
 - Updates health status after every run
+- Writes alert entries when failure/schema thresholds are breached
 - Logs every execution
 """
 
@@ -14,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
 import signal
 import sys
 import threading
@@ -22,7 +25,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .backoff import BackoffManager
-from .models import HealthStatus, RunLogEntry, RunResult, SlotDiff
+from .models import (
+    AlertEntry,
+    HealthStatus,
+    MonitorConfig,
+    RunLogEntry,
+    RunResult,
+    SlotDiff,
+)
 from .runner import Runner
 
 logger = logging.getLogger("monitor.scheduler")
@@ -61,9 +71,9 @@ class Scheduler:
     Each cycle:
         1. Check shutdown flag (exit if set)
         2. Apply backoff cooldown delay if active
-        3. Sleep remaining time until next poll time
-        4. Execute runner.run()
-        5. Update health status
+        3. Sleep remaining time until next poll time (with optional jitter)
+        4. Execute runner.run() (reconciliation every N cycles)
+        5. Update health status and alert hooks
         6. Update backoff state
         7. Log result and print diff summary
         8. Repeat
@@ -73,25 +83,47 @@ class Scheduler:
         self,
         runner: Runner,
         poll_interval_seconds: int,
+        poll_interval_jitter_fraction: float,
         startup_delay_seconds: float,
         shutdown_timeout_seconds: float,
+        reconciliation_interval_cycles: int,
+        consecutive_failures_alert_threshold: int,
+        schema_validation_alert_threshold: int,
         backoff: BackoffManager,
         health_file_path: Path,
+        alerts_file_path: Path,
         shutdown: GracefulShutdown,
     ) -> None:
         self.runner = runner
         self.poll_interval = poll_interval_seconds
+        self.poll_interval_jitter_fraction = poll_interval_jitter_fraction
         self.startup_delay = startup_delay_seconds
         self.shutdown_timeout = shutdown_timeout_seconds
+        self.reconciliation_interval = reconciliation_interval_cycles
+        self.consecutive_failures_alert_threshold = consecutive_failures_alert_threshold
+        self.schema_validation_alert_threshold = schema_validation_alert_threshold
         self.backoff = backoff
         self.health_path = health_file_path
+        self.alerts_path = alerts_file_path
         self.shutdown = shutdown
 
+        self._cycle_count = 0
         self._health = HealthStatus(
             start_time=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             current_status="starting",
         )
         self._recent_entries: list[RunLogEntry] = []
+
+    def _jittered_interval(self) -> float:
+        """Return poll interval with random jitter applied."""
+        jitter = self.poll_interval * self.poll_interval_jitter_fraction
+        return self.poll_interval + random.uniform(-jitter, jitter)
+
+    def _effective_interval(self) -> float:
+        return self.poll_interval + random.uniform(
+            -self.poll_interval * self.poll_interval_jitter_fraction,
+             self.poll_interval * self.poll_interval_jitter_fraction,
+        )
 
     def start(self) -> None:
         """
@@ -105,10 +137,12 @@ class Scheduler:
             loop.add_signal_handler(sig, self._on_signal, sig)
 
         logger.info(
-            "Scheduler starting — poll_interval=%ds, startup_delay=%.1fs, shutdown_timeout=%.1fs",
+            "Scheduler starting - poll_interval=%ds jitter=%.1f%% startup_delay=%.1fs "
+            "reconciliation_every=%d cycles",
             self.poll_interval,
+            self.poll_interval_jitter_fraction * 100,
             self.startup_delay,
-            self.shutdown_timeout,
+            self.reconciliation_interval,
         )
 
         try:
@@ -118,30 +152,26 @@ class Scheduler:
             logger.info("Scheduler loop exited")
 
     async def _run_loop(self) -> None:
-        """Main scheduler loop — runs until shutdown is requested."""
-        # Initial startup delay
+        """Main scheduler loop - runs until shutdown is requested."""
         try:
             await asyncio.sleep(self.startup_delay)
         except asyncio.CancelledError:
             return
 
-        # Absolute timestamp of next scheduled run
         next_run_ts = time.monotonic()
         self._health.current_status = "running"
 
         while not self.shutdown.is_requested:
-            # 1. Check backoff cooldown and apply extra delay if needed
             extra_delay = self.backoff.maybe_extra_delay()
             if extra_delay > 0 and not self.shutdown.is_requested:
                 logger.info(
-                    "Rate-limit backoff active — sleeping extra %.0fs before next poll",
+                    "Rate-limit backoff active - sleeping extra %.0fs before next poll",
                     extra_delay,
                 )
                 end_backoff = time.monotonic() + extra_delay
                 while time.monotonic() < end_backoff and not self.shutdown.is_requested:
                     await asyncio.sleep(min(5.0, end_backoff - time.monotonic()))
 
-            # 2. Sleep until next scheduled poll time
             now = time.monotonic()
             sleep_duration = max(0.0, next_run_ts - now)
             if sleep_duration > 0 and not self.shutdown.is_requested:
@@ -153,56 +183,58 @@ class Scheduler:
             if self.shutdown.is_requested:
                 break
 
-            # 3. Advance next run timestamp
+            self._cycle_count += 1
+
+            is_reconciliation = (
+                self._cycle_count == 1
+                or (self._cycle_count % self.reconciliation_interval) == 0
+            )
+            if is_reconciliation and self._cycle_count > 1:
+                logger.info(
+                    "Scheduled reconciliation run at cycle %d (every %d cycles)",
+                    self._cycle_count,
+                    self.reconciliation_interval,
+                )
+
             next_run_ts = time.monotonic() + self.poll_interval
             self._health.next_scheduled_run = datetime.fromtimestamp(
                 time.time() + self.poll_interval, tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-            # 4. Execute the fetch cycle
-            await self._execute_cycle()
+            await self._execute_cycle(reconciliation=is_reconciliation)
 
-            # 5. Check shutdown after cycle (graceful exit)
             if self.shutdown.is_requested:
                 break
 
-        # Graceful shutdown complete
         self._health.current_status = "stopped"
         self._health.next_scheduled_run = None
         self._save_health()
 
-    async def _execute_cycle(self) -> None:
+    async def _execute_cycle(self, reconciliation: bool = False) -> None:
         """Run one fetch + diff cycle and update health/logs."""
         run_ok = False
 
         try:
-            records, diff, entry = await self.runner.run()
+            records, diff, entry = await self.runner.run(reconciliation=reconciliation)
             run_ok = True
 
-            # Update health
             self._health.total_runs += 1
             self._health.last_successful_run = entry.timestamp
-            self._health.last_run_result = RunResult.SUCCESS.value
+            self._health.last_run_result = entry.result
             self._health.consecutive_failures = 0
             self._health.token_refresh_count = self.runner._token_refresh_count
+            self._health.schema_validation_failures = entry.schema_validation_failures
 
-            # Token age
-            try:
-                from token_manager import TokenManager
-                # token_manager accessed via runner.token_manager
-                age = self.runner.token_manager.token_age_seconds()
+            age = self.runner.token_age_seconds()
+            if age is not None:
                 self._health.token_age_seconds = age
-            except Exception:
-                pass
 
-            # Update backoff (clean run — resets if enough consecutive)
             self.backoff.on_run_complete(got_429=False, runs_since_last_429=0)
 
-            # Log
             self._log_entry(entry)
             self._save_health()
+            self._check_alerts(entry)
 
-            # Print summary
             self._print_diff_summary(diff)
 
         except Exception as exc:
@@ -218,6 +250,84 @@ class Scheduler:
                 exc,
                 exc_info=True,
             )
+
+            self._check_alerts_on_error(exc)
+
+    def _check_alerts(self, entry: RunLogEntry) -> None:
+        """Evaluate alert thresholds and write alert entries if triggered."""
+        should_alert = False
+        reason = ""
+
+        if self._health.consecutive_failures >= self.consecutive_failures_alert_threshold:
+            should_alert = True
+            reason = (
+                f"Consecutive failures ({self._health.consecutive_failures}) "
+                f"crossed threshold ({self.consecutive_failures_alert_threshold})"
+            )
+        elif entry.schema_validation_failures >= self.schema_validation_alert_threshold:
+            should_alert = True
+            reason = (
+                f"Schema validation failures ({entry.schema_validation_failures}) "
+                f"crossed threshold ({self.schema_validation_alert_threshold})"
+            )
+
+        if self.runner.token_manager.is_cookies_dead():
+            should_alert = True
+            reason = (
+                f"Cookies appear dead (server rejected token). "
+                f"Last error: {self.runner.token_manager.last_verify_error() or 'unknown'}"
+            )
+
+        if should_alert:
+            alert_entry = AlertEntry(
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                reason=reason,
+                severity="error" if "dead" in reason else "warning",
+                run_id=entry.run_id,
+                consecutive_failures=self._health.consecutive_failures,
+                schema_validation_failures=entry.schema_validation_failures,
+                current_status=self._health.current_status,
+            )
+            self._append_alert(alert_entry)
+
+    def _check_alerts_on_error(self, exc: Exception) -> None:
+        """Write an alert entry for an exception that caused a cycle to fail."""
+        reason = f"Run failed: {type(exc).__name__}: {exc}"
+        alert_entry = AlertEntry(
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            reason=reason,
+            severity="error",
+            run_id="",
+            consecutive_failures=self._health.consecutive_failures,
+            current_status=self._health.current_status,
+        )
+        self._append_alert(alert_entry)
+
+    def _append_alert(self, entry: AlertEntry) -> None:
+        """Append an AlertEntry to alerts.json (atomic write)."""
+        try:
+            existing: list[dict] = []
+            if self.alerts_path.exists():
+                try:
+                    existing = json.loads(self.alerts_path.read_text(encoding="utf-8"))
+                except (json.JSONDecodeError, OSError):
+                    existing = []
+
+            existing.append(entry.to_dict())
+
+            content = json.dumps(existing, indent=2)
+            tmp = self.alerts_path.with_suffix(".tmp")
+            tmp.write_text(content, encoding="utf-8")
+            tmp.replace(self.alerts_path)
+
+            logger.warning(
+                "ALERT written to %s: [%s] %s",
+                self.alerts_path,
+                entry.severity,
+                entry.reason,
+            )
+        except Exception as e:
+            logger.error("Failed to write alert entry: %s", e)
 
     def _print_diff_summary(self, diff: SlotDiff) -> None:
         """Print a human-readable summary of booking changes."""
@@ -259,7 +369,7 @@ class Scheduler:
         logger.log(
             level,
             "[run %s] result=%-12s venues=%d slots=%d duration=%.1fs "
-            "retries=%d token_refreshed=%s changes=%s",
+            "retries=%d token_refreshed=%s changes=%s reconciliation=%s",
             entry.run_id,
             entry.result,
             entry.venues_queried,
@@ -268,14 +378,16 @@ class Scheduler:
             entry.retry_count,
             entry.token_refreshed,
             entry.changes,
+            entry.reconciliation_run,
         )
 
     def _save_health(self) -> None:
         """Atomically write health status to disk."""
         self.health_path.parent.mkdir(parents=True, exist_ok=True)
+        content = json.dumps(self._health.to_dict(), indent=2)
         tmp = self.health_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._health.to_dict(), indent=2))
-        tmp.replace(self.health_path)  # Atomic on POSIX, close enough on Windows
+        tmp.write_text(content, encoding="utf-8")
+        tmp.replace(self.health_path)
 
     def _on_signal(self, sig: signal.Signals) -> None:
         logger.info("Received %s - initiating graceful shutdown", sig.name)

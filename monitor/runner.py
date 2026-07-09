@@ -6,8 +6,11 @@ Handles:
 - Automatic token refresh on 401/403
 - Exponential backoff retry on network/5xx errors
 - Concurrency limiting via semaphore
-- Diff against previous snapshot
-- Snapshot history management
+- Diff against previous snapshot (keyed by court_id for stability)
+- Schema validation on Playo responses
+- Periodic full-state reconciliation
+- Atomic JSON writes (temp-then-rename)
+- Daily rollup aggregation before history pruning
 - Run log entry generation
 """
 
@@ -26,6 +29,7 @@ from typing import Any
 import httpx
 
 from .models import (
+    AlertEntry,
     Config,
     FetchConfig,
     RunLogEntry,
@@ -34,7 +38,7 @@ from .models import (
     SlotRecord,
     Venue,
 )
-from .token_manager import TokenManager
+from .token_manager import TokenError, TokenManager
 
 logger = logging.getLogger("monitor.runner")
 
@@ -45,13 +49,47 @@ BASE_HEADERS = {
 }
 
 
+# ── Schema validation ─────────────────────────────────────────────────────────
+
+_SCHEMA_REQUIRED_KEYS = frozenset(["courtInfo"])
+
+
+def _validate_playo_response(data: dict) -> tuple[bool, str]:
+    """
+    Validate the structure of a Playo availability response.
+
+    Returns (is_valid, reason_string).
+    """
+    if not isinstance(data, dict):
+        return False, "response is not a dict"
+
+    for key in _SCHEMA_REQUIRED_KEYS:
+        if key not in data:
+            return False, f"missing required field '{key}'"
+
+    court_info = data["courtInfo"]
+    if not isinstance(court_info, list):
+        return False, f"'courtInfo' is {type(court_info).__name__}, expected list"
+
+    for i, court in enumerate(court_info):
+        if not isinstance(court, dict):
+            return False, f"courtInfo[{i}] is {type(court).__name__}, expected dict"
+        if "courtName" not in court:
+            return False, f"courtInfo[{i}] missing 'courtName'"
+
+    return True, ""
+
+
+# ── Response parsing ───────────────────────────────────────────────────────────
+
 def _parse_playo_response(data: dict, target_date: date) -> list[SlotRecord]:
     """Parse Playo availability response into SlotRecord list."""
     records: list[SlotRecord] = []
     fetched_at = data.get("fetched_at", "") or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     min_duration = data.get("minSlotDuration", 30)
 
-    for court in data.get("courtInfo", []):
+    for court in data.get("courtInfo") or []:
+        court_id = court.get("courtId", 0) or 0
         court_name = court.get("courtName", "Unknown")
         for slot in (court.get("slotInfo") or []):
             start_hms = slot.get("time") or ""
@@ -69,6 +107,7 @@ def _parse_playo_response(data: dict, target_date: date) -> list[SlotRecord]:
                     playz_turf_id="",
                     venue_name="",
                     playo_venue_id="",
+                    court_id=court_id,
                     court_name=court_name,
                     sport_code="",
                     date=target_date.isoformat(),
@@ -82,8 +121,21 @@ def _parse_playo_response(data: dict, target_date: date) -> list[SlotRecord]:
     return records
 
 
-def _compute_diff(old: list[SlotRecord], new: list[SlotRecord]) -> SlotDiff:
-    """Diff two snapshot lists on (court_name, date, start_time) key."""
+# ── Diff ──────────────────────────────────────────────────────────────────────
+
+def _compute_diff(old: list[SlotRecord], new: list[SlotRecord], reconciliation: bool = False) -> SlotDiff:
+    """
+    Diff two snapshot lists.
+
+    Keyed by (court_id, date, start_time) — court_name is excluded to avoid
+    false storms when Playo renames a court.
+
+    When reconciliation=True, no previous snapshot exists, so all current
+    slots go into 'unchanged' (treat full state as baseline).
+    """
+    if reconciliation:
+        return SlotDiff(unchanged=new)
+
     old_index = {r.key(): r for r in old}
     new_index = {r.key(): r for r in new}
     all_keys = set(old_index.keys()) | set(new_index.keys())
@@ -116,6 +168,7 @@ def _slot_to_dict(r: SlotRecord) -> dict[str, Any]:
         "playz_turf_id": r.playz_turf_id,
         "venue_name": r.venue_name,
         "playo_venue_id": r.playo_venue_id,
+        "court_id": r.court_id,
         "court_name": r.court_name,
         "sport_code": r.sport_code,
         "date": r.date,
@@ -126,9 +179,44 @@ def _slot_to_dict(r: SlotRecord) -> dict[str, Any]:
     }
 
 
+# ── Atomic write ──────────────────────────────────────────────────────────────
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write content to a temp file next to path, then atomically rename."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content, encoding="utf-8")
+    tmp.replace(path)
+
+
+# ── Rollup ─────────────────────────────────────────────────────────────────────
+
+def _generate_rollup(records: list[SlotRecord], run_id: str) -> dict[str, Any]:
+    """Aggregate a set of slot records into a daily rollup summary."""
+    by_turf: dict[str, dict[str, Any]] = {}
+    for r in records:
+        turf = r.playz_turf_id
+        if turf not in by_turf:
+            by_turf[turf] = {"venue_name": r.venue_name, "total_slots": 0, "booked": 0, "free": 0}
+        by_turf[turf]["total_slots"] += 1
+        if r.is_booked:
+            by_turf[turf]["booked"] += 1
+        else:
+            by_turf[turf]["free"] += 1
+
+    return {
+        "rollup_id": run_id,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "venues": by_turf,
+        "total_slots": len(records),
+        "total_booked": sum(1 for r in records if r.is_booked),
+        "total_free": sum(1 for r in records if not r.is_booked),
+    }
+
+
 @dataclass
 class _VenueFetchTask:
-    """A single venue × date fetch with retry logic."""
+    """A single venue x date fetch with retry logic."""
 
     client: httpx.AsyncClient
     venue: Venue
@@ -143,6 +231,7 @@ class _VenueFetchTask:
     got_429: bool = False
     retry_after_seconds: float | None = None
     retries: int = 0
+    schema_validation_failures: int = 0
 
     async def run(self) -> None:
         url = (
@@ -160,7 +249,7 @@ class _VenueFetchTask:
 
                     if resp.status_code in (401, 403):
                         logger.warning(
-                            "HTTP %d for %s %s — signalling token refresh",
+                            "HTTP %d for %s %s - signalling token refresh",
                             resp.status_code,
                             self.venue.venue_name,
                             self.venue.sport_code,
@@ -194,7 +283,7 @@ class _VenueFetchTask:
                         if attempt < max_retries:
                             wait = delays * (2 ** attempt)
                             logger.warning(
-                                "HTTP %d for %s %s — retry %d/%d in %.1fs",
+                                "HTTP %d for %s %s - retry %d/%d in %.1fs",
                                 resp.status_code,
                                 self.venue.venue_name,
                                 self.venue.sport_code,
@@ -214,6 +303,17 @@ class _VenueFetchTask:
                         datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     )
 
+                    valid, reason = _validate_playo_response(raw)
+                    if not valid:
+                        self.schema_validation_failures += 1
+                        logger.warning(
+                            "Schema validation failed for %s %s: %s",
+                            self.venue.venue_name,
+                            self.venue.sport_code,
+                            reason,
+                        )
+                        return
+
                     slots = _parse_playo_response(raw, self.target_date)
                     for slot in slots:
                         slot.playz_turf_id = self.venue.playz_turf_id
@@ -229,7 +329,7 @@ class _VenueFetchTask:
                     if attempt < max_retries:
                         wait = delays * (2 ** attempt)
                         logger.warning(
-                            "%s for %s %s — retry %d/%d in %.1fs",
+                            "%s for %s %s - retry %d/%d in %.1fs",
                             type(e).__name__,
                             self.venue.venue_name,
                             self.venue.sport_code,
@@ -254,7 +354,7 @@ class _VenueFetchTask:
                     if attempt < max_retries:
                         wait = delays * (2 ** attempt)
                         logger.warning(
-                            "HTTPStatusError %d for %s — retry %d/%d in %.1fs",
+                            "HTTPStatusError %d for %s - retry %d/%d in %.1fs",
                             e.response.status_code,
                             self.venue.venue_name,
                             attempt + 1,
@@ -280,12 +380,18 @@ class Runner:
     latest_snapshot_path: Path
     latest_diff_path: Path
     history_dir: Path
+    rollup_dir: Path
 
     _token_refresh_count: int = 0
 
-    async def run(self) -> tuple[list[SlotRecord], SlotDiff, RunLogEntry]:
+    async def run(self, reconciliation: bool = False) -> tuple[list[SlotRecord], SlotDiff, RunLogEntry]:
         """
         Execute one full poll cycle.
+
+        When reconciliation=True, skips the diff against the previous snapshot
+        (treats this run as establishing a fresh baseline) and logs it as a
+        RECONCILIATION result.
+
         Returns (fresh_records, diff, run_log_entry).
         """
         run_id = uuid.uuid4().hex[:8]
@@ -298,61 +404,51 @@ class Runner:
         dates = [today + timedelta(days=i) for i in range(self.config.fetch.days_ahead)]
 
         logger.info(
-            "[run %s] Starting poll — %d venues × %d days (token age: %.0fs)",
+            "[run %s] Starting poll - %d venues x %d days (token age: %.0fs)%s",
             run_id,
             len(self.venues),
             len(dates),
-            self.token_manager.token_age_seconds() or 0,
+            self.token_age_seconds() or 0,
+            " [RECONCILIATION]" if reconciliation else "",
         )
 
-        # First fetch attempt
-        (
-            all_records,
-            total_retries,
-            got_429,
-            retry_after_val,
-            _,
-        ) = await self._fetch_all(token, dates, auth_error_flag)
+        first_fetch = await self._fetch_all(token, dates, auth_error_flag)
 
-        # Retry after token refresh if needed
         if auth_error_flag:
             logger.info("[run %s] Retrying after token refresh", run_id)
             self._do_token_refresh()
             self._token_refresh_count += 1
             token = self._get_valid_token()
             auth_error_flag.clear()
+            first_fetch = await self._fetch_all(token, dates, auth_error_flag)
 
-            (
-                all_records,
-                total_retries2,
-                got_429_2,
-                retry_after_val2,
-                _,
-            ) = await self._fetch_all(token, dates, auth_error_flag)
-            total_retries += total_retries2
-            got_429 = got_429 or got_429_2
-            retry_after_val = retry_after_val or retry_after_val2
+        all_records, total_retries, got_429, retry_after_val, schema_failures = first_fetch
 
-        # Diff against previous snapshot
-        prev_records = self._load_previous_snapshot()
-        diff = _compute_diff(prev_records, all_records) if prev_records else SlotDiff()
+        prev_records = [] if reconciliation else self._load_previous_snapshot()
+        diff = _compute_diff(prev_records, all_records, reconciliation=reconciliation)
 
-        # Save snapshots
-        self._save_snapshots(all_records, diff)
+        self._save_snapshots(all_records, diff, run_id)
+        self._maybe_rollup(all_records, run_id)
 
         duration = time.monotonic() - start_time
         changes = diff.summary()
+
+        result = RunResult.RECONCILIATION.value if reconciliation else (
+            RunResult.SUCCESS.value if all_records else RunResult.FAILED.value
+        )
 
         log_entry = RunLogEntry(
             run_id=run_id,
             timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             duration_seconds=round(duration, 2),
-            result=RunResult.SUCCESS.value if all_records else RunResult.FAILED.value,
+            result=result,
             venues_queried=len(self.venues),
             slots_fetched=len(all_records),
             changes=changes,
+            reconciliation_run=reconciliation,
             token_refreshed=self._token_refresh_count > 0,
             retry_count=total_retries,
+            schema_validation_failures=schema_failures,
         )
 
         logger.info(
@@ -372,7 +468,7 @@ class Runner:
         token: str,
         dates: list[date],
         auth_error_flag: list[bool],
-    ) -> tuple[list[SlotRecord], int, bool, float | None, bool]:
+    ) -> tuple[list[SlotRecord], int, bool, float | None, int]:
         cfg = self.config.fetch
         sem = asyncio.Semaphore(cfg.max_concurrent)
         transport = httpx.AsyncHTTPTransport(retries=0)
@@ -409,20 +505,25 @@ class Runner:
         total_retries = 0
         got_429 = False
         retry_after_val: float | None = None
+        total_schema_failures = 0
 
         for t in tasks:
             all_records.extend(t.result)
             total_retries += t.retries
+            total_schema_failures += t.schema_validation_failures
             if t.got_429:
                 got_429 = True
                 retry_after_val = t.retry_after_seconds
 
-        return all_records, total_retries, got_429, retry_after_val, False
+        return all_records, total_retries, got_429, retry_after_val, total_schema_failures
+
+    def token_age_seconds(self) -> float | None:
+        return self.token_manager.token_age_seconds()
 
     def _get_valid_token(self) -> str:
         try:
             return self.token_manager.get_token()
-        except Exception as e:
+        except TokenError as e:
             logger.error("Token acquisition failed: %s", e)
             raise
 
@@ -430,7 +531,7 @@ class Runner:
         try:
             self.token_manager.refresh()
             logger.info("Token refresh succeeded")
-        except Exception as e:
+        except TokenError as e:
             logger.error("Token refresh failed: %s - proceeding with existing token", e)
             raise
 
@@ -440,29 +541,45 @@ class Runner:
         raw = json.loads(self.latest_snapshot_path.read_text())
         return [SlotRecord.from_raw_dict(r) for r in raw]
 
-    def _save_snapshots(self, records: list[SlotRecord], diff: SlotDiff) -> None:
-        self.latest_snapshot_path.parent.mkdir(parents=True, exist_ok=True)
+    def _save_snapshots(self, records: list[SlotRecord], diff: SlotDiff, run_id: str) -> None:
+        snapshot_content = json.dumps([_slot_to_dict(r) for r in records], indent=2)
+        _atomic_write(self.latest_snapshot_path, snapshot_content)
 
-        self.latest_snapshot_path.write_text(
-            json.dumps([_slot_to_dict(r) for r in records], indent=2)
+        diff_content = json.dumps(
+            {
+                "newly_booked": [_slot_to_dict(r) for r in diff.newly_booked],
+                "newly_free": [_slot_to_dict(r) for r in diff.newly_free],
+                "unchanged": [_slot_to_dict(r) for r in diff.unchanged],
+            },
+            indent=2,
         )
-
-        self.latest_diff_path.write_text(
-            json.dumps(
-                {
-                    "newly_booked": [_slot_to_dict(r) for r in diff.newly_booked],
-                    "newly_free": [_slot_to_dict(r) for r in diff.newly_free],
-                    "unchanged": [_slot_to_dict(r) for r in diff.unchanged],
-                },
-                indent=2,
-            )
-        )
+        _atomic_write(self.latest_diff_path, diff_content)
 
         self.history_dir.mkdir(parents=True, exist_ok=True)
         history_path = self.history_dir / f"snapshot_{datetime.now(timezone.utc).strftime('%Y-%m-%d_%H%M%S')}.json"
-        history_path.write_text(json.dumps([_slot_to_dict(r) for r in records], indent=2))
+        history_path.write_text(json.dumps([_slot_to_dict(r) for r in records], indent=2), encoding="utf-8")
 
         self._prune_history()
+
+    def _maybe_rollup(self, records: list[SlotRecord], run_id: str) -> None:
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        rollup_path = self.rollup_dir / f"{today_str}.json"
+
+        existing: dict[str, Any] = {}
+        if rollup_path.exists():
+            try:
+                existing = json.loads(rollup_path.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                existing = {}
+
+        runs = existing.get("runs", [])
+        runs.append(_generate_rollup(records, run_id))
+        existing["runs"] = runs
+
+        existing["last_updated"] = datetime.now(timezone.utc).isoformat()
+        existing["total_runs"] = len(runs)
+
+        _atomic_write(rollup_path, json.dumps(existing, indent=2))
 
     def _prune_history(self) -> None:
         max_count = self.config.snapshot.max_count
@@ -471,18 +588,33 @@ class Runner:
 
         files = sorted(self.history_dir.glob("snapshot_*.json"), key=lambda p: p.stat().st_mtime)
 
-        # Prune by count
         if len(files) > max_count:
             for f in files[: len(files) - max_count]:
                 f.unlink(missing_ok=True)
                 logger.debug("Pruned snapshot (count): %s", f.name)
 
-        # Prune by age
         for f in files:
             try:
                 mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
                 if mtime < cutoff:
                     f.unlink(missing_ok=True)
                     logger.debug("Pruned snapshot (age): %s", f.name)
+            except OSError:
+                pass
+
+        self._prune_rollups(cutoff)
+
+    def _prune_rollups(self, cutoff: datetime) -> None:
+        retention = self.config.snapshot.rollup_retention_days
+        if retention <= 0:
+            return
+
+        rollup_cutoff = datetime.now(timezone.utc) - timedelta(days=retention)
+        for f in self.rollup_dir.glob("*.json"):
+            try:
+                mtime = datetime.fromtimestamp(f.stat().st_mtime, tz=timezone.utc)
+                if mtime < rollup_cutoff:
+                    f.unlink(missing_ok=True)
+                    logger.debug("Pruned rollup (age): %s", f.name)
             except OSError:
                 pass

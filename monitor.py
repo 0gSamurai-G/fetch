@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import logging
 import logging.handlers
@@ -169,6 +170,8 @@ def main() -> None:
     latest_snapshot = paths.latest_snapshot(cfg.monitor)
     latest_diff     = paths.latest_diff(cfg.monitor)
     history_dir     = paths.history_dir(cfg.snapshot)
+    alerts_path     = paths.alerts_file(cfg.monitor)
+    rollup_dir      = paths.rollup_dir(cfg.snapshot)
 
     # Runner
     runner = Runner(
@@ -178,6 +181,7 @@ def main() -> None:
         latest_snapshot_path=latest_snapshot,
         latest_diff_path=latest_diff,
         history_dir=history_dir,
+        rollup_dir=rollup_dir,
     )
 
     # Write initial health
@@ -192,14 +196,33 @@ def main() -> None:
     signal.signal(signal.SIGINT,  _sigint_handler)
     signal.signal(signal.SIGTERM, _sigint_handler)
 
+    # Startup reconciliation: run once before entering the scheduler loop
+    # to establish a full baseline state (no spurious diffs on first cycle)
+    logger.info("Running startup reconciliation...")
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(runner.run(reconciliation=True))
+        finally:
+            loop.close()
+        logger.info("Startup reconciliation complete")
+    except Exception as exc:
+        logger.warning("Startup reconciliation failed (will retry in scheduler): %s", exc)
+
     # Scheduler
     scheduler = Scheduler(
         runner=runner,
         poll_interval_seconds=cfg.monitor.poll_interval_seconds,
+        poll_interval_jitter_fraction=cfg.monitor.poll_interval_jitter_fraction,
         startup_delay_seconds=cfg.monitor.startup_delay_seconds,
         shutdown_timeout_seconds=cfg.monitor.shutdown_timeout_seconds,
+        reconciliation_interval_cycles=cfg.monitor.reconciliation_interval_cycles,
+        consecutive_failures_alert_threshold=cfg.monitor.consecutive_failures_alert_threshold,
+        schema_validation_alert_threshold=cfg.monitor.schema_validation_alert_threshold,
         backoff=backoff,
         health_file_path=health_path,
+        alerts_file_path=alerts_path,
         shutdown=_shutdown,
     )
 
@@ -208,10 +231,14 @@ def main() -> None:
         f"  Playo -> PlayZ Availability Monitor\n"
         f"  {'-'*42}\n"
         f"  Venues          {len(venues)}\n"
-        f"  Poll interval   {cfg.monitor.poll_interval_seconds}s\n"
+        f"  Poll interval   {cfg.monitor.poll_interval_seconds}s"
+        f" (+/- {cfg.monitor.poll_interval_jitter_fraction * 100:.0f}% jitter)\n"
+        f"  Reconciliation  every {cfg.monitor.reconciliation_interval_cycles} cycles\n"
         f"  Logs            {log_dir}\n"
         f"  Health file     {health_path}\n"
+        f"  Alerts file     {alerts_path}\n"
         f"  History         {history_dir}\n"
+        f"  Rollups         {rollup_dir}\n"
         f"  {'-'*42}\n"
         f"  Press Ctrl+C to stop gracefully.\n"
     )
