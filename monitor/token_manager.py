@@ -117,15 +117,14 @@ class TokenManager:
                 timeout=10.0,
                 follow_redirects=True,
             )
-            if response.status_code in (200, 301, 302, 303, 307, 308):
-                self._cookies_dead = False
-                return True
             if response.status_code in (401, 403):
                 logger.warning("verify_cookies: server rejected token (HTTP %d) - cookies may be dead", response.status_code)
                 self._cookies_dead = True
                 self._last_verify_error = f"HTTP {response.status_code} on verify"
                 return False
-            return False
+            else:
+                self._cookies_dead = False
+                return True
         except httpx.TimeoutException:
             logger.warning("verify_cookies: request timed out")
             return False

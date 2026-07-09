@@ -74,6 +74,8 @@ class MonitorConfig:
     alerts_file: str = "monitor_data/alerts.json"
     consecutive_failures_alert_threshold: int = 5
     schema_validation_alert_threshold: int = 3
+    alerts_file_max_count: int = 100
+    max_stale_cycles: int = 5
 
 
 # ── Alert dataclasses ──────────────────────────────────────────────────────────
@@ -309,6 +311,7 @@ class HealthStatus:
     next_scheduled_run: str | None = None
     current_status: str = "starting"
     config_version: str = "2.0"
+    stale_venues: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

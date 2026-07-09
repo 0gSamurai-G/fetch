@@ -162,6 +162,16 @@ def main() -> None:
         )
         sys.exit(1)
 
+    # Proactive cookie verification at startup
+    logger.info("Performing proactive startup cookie verification...")
+    if not tm.verify_cookies():
+        logger.warning("Startup proactive cookie verification failed. Attempting token refresh...")
+        try:
+            tm.refresh()
+            logger.info("Token refreshed successfully on startup.")
+        except Exception as exc:
+            logger.error("Startup token refresh failed: %s", exc)
+
     # Backoff
     backoff = BackoffManager(cfg.backoff)
 

@@ -384,7 +384,11 @@ class Runner:
 
     _token_refresh_count: int = 0
 
-    async def run(self, reconciliation: bool = False) -> tuple[list[SlotRecord], SlotDiff, RunLogEntry]:
+    async def run(
+        self,
+        reconciliation: bool = False,
+        stale_venues: dict[str, int] | None = None,
+    ) -> tuple[list[SlotRecord], SlotDiff, RunLogEntry]:
         """
         Execute one full poll cycle.
 
@@ -400,7 +404,8 @@ class Runner:
 
         token = self._get_valid_token()
 
-        today = date.today()
+        kolkata_tz = timezone(timedelta(hours=5, minutes=30))
+        today = datetime.now(kolkata_tz).date()
         dates = [today + timedelta(days=i) for i in range(self.config.fetch.days_ahead)]
 
         logger.info(
@@ -422,10 +427,57 @@ class Runner:
             auth_error_flag.clear()
             first_fetch = await self._fetch_all(token, dates, auth_error_flag)
 
-        all_records, total_retries, got_429, retry_after_val, schema_failures = first_fetch
+        tasks, total_retries, got_429, retry_after_val, schema_failures = first_fetch
 
-        prev_records = [] if reconciliation else self._load_previous_snapshot()
-        diff = _compute_diff(prev_records, all_records, reconciliation=reconciliation)
+        # Load previous snapshot to find carry-over records
+        prev_records = self._load_previous_snapshot()
+        prev_by_venue_date: dict[tuple[str, str], list[SlotRecord]] = {}
+        for r in prev_records:
+            prev_by_venue_date.setdefault((r.playo_venue_id, r.date), []).append(r)
+
+        # Build all_records and handle carryover
+        all_records: list[SlotRecord] = []
+        current_stale_keys: set[str] = set()
+
+        for t in tasks:
+            v = t.venue
+            date_str = t.target_date.isoformat()
+            key_name = f"{v.venue_name} [{date_str}]"
+            is_failed = (t.error is not None) or t.got_429 or (t.schema_validation_failures > 0)
+
+            if is_failed:
+                old_slots = prev_by_venue_date.get((v.playo_venue_id, date_str), [])
+                if old_slots:
+                    all_records.extend(old_slots)
+                    logger.warning(
+                        "Carrying over %d slot records for %s from previous snapshot due to fetch/validation failure.",
+                        len(old_slots), key_name
+                    )
+                else:
+                    logger.warning(
+                        "Fetch failed for %s and no previous snapshot records exist to carry over.",
+                        key_name
+                    )
+                current_stale_keys.add(key_name)
+            else:
+                all_records.extend(t.result)
+                logger.info("Successfully fetched %d slot records for %s.", len(t.result), key_name)
+
+        # Update stale_venues dictionary if provided
+        if stale_venues is not None:
+            # 1. Increment or add current stale keys
+            for key in current_stale_keys:
+                stale_venues[key] = stale_venues.get(key, 0) + 1
+            # 2. Clear successfully fetched keys
+            for t in tasks:
+                key_name = f"{t.venue.venue_name} [{t.target_date.isoformat()}]"
+                if key_name not in current_stale_keys and key_name in stale_venues:
+                    del stale_venues[key_name]
+
+        if not prev_records:
+            diff = _compute_diff([], all_records, reconciliation=True)
+        else:
+            diff = _compute_diff(prev_records, all_records, reconciliation=False)
 
         self._save_snapshots(all_records, diff, run_id)
         self._maybe_rollup(all_records, run_id)
@@ -452,8 +504,9 @@ class Runner:
         )
 
         logger.info(
-            "[run %s] Done in %.1fs | slots=%d booked=%d | diff: +booked=%d +free=%d",
+            "[run %s] Done%s in %.1fs | slots=%d booked=%d | diff: +booked=%d +free=%d",
             run_id,
+            " [RECONCILIATION]" if reconciliation else "",
             duration,
             len(all_records),
             sum(1 for r in all_records if r.is_booked),
@@ -468,7 +521,7 @@ class Runner:
         token: str,
         dates: list[date],
         auth_error_flag: list[bool],
-    ) -> tuple[list[SlotRecord], int, bool, float | None, int]:
+    ) -> tuple[list[_VenueFetchTask], int, bool, float | None, int]:
         cfg = self.config.fetch
         sem = asyncio.Semaphore(cfg.max_concurrent)
         transport = httpx.AsyncHTTPTransport(retries=0)
@@ -501,21 +554,19 @@ class Runner:
         await asyncio.gather(*[t.run() for t in tasks])
         await client.aclose()
 
-        all_records: list[SlotRecord] = []
         total_retries = 0
         got_429 = False
         retry_after_val: float | None = None
         total_schema_failures = 0
 
         for t in tasks:
-            all_records.extend(t.result)
             total_retries += t.retries
             total_schema_failures += t.schema_validation_failures
             if t.got_429:
                 got_429 = True
                 retry_after_val = t.retry_after_seconds
 
-        return all_records, total_retries, got_429, retry_after_val, total_schema_failures
+        return tasks, total_retries, got_429, retry_after_val, total_schema_failures
 
     def token_age_seconds(self) -> float | None:
         return self.token_manager.token_age_seconds()
@@ -562,7 +613,8 @@ class Runner:
         self._prune_history()
 
     def _maybe_rollup(self, records: list[SlotRecord], run_id: str) -> None:
-        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        kolkata_tz = timezone(timedelta(hours=5, minutes=30))
+        today_str = datetime.now(kolkata_tz).strftime("%Y-%m-%d")
         rollup_path = self.rollup_dir / f"{today_str}.json"
 
         existing: dict[str, Any] = {}

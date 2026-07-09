@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+logs/
+monitor_data/
+tokens/current_token.txt

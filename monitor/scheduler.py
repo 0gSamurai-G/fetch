@@ -119,12 +119,6 @@ class Scheduler:
         jitter = self.poll_interval * self.poll_interval_jitter_fraction
         return self.poll_interval + random.uniform(-jitter, jitter)
 
-    def _effective_interval(self) -> float:
-        return self.poll_interval + random.uniform(
-            -self.poll_interval * self.poll_interval_jitter_fraction,
-             self.poll_interval * self.poll_interval_jitter_fraction,
-        )
-
     def start(self) -> None:
         """
         Start the scheduler. Registers signal handlers, then runs the event loop
@@ -189,16 +183,26 @@ class Scheduler:
                 self._cycle_count == 1
                 or (self._cycle_count % self.reconciliation_interval) == 0
             )
-            if is_reconciliation and self._cycle_count > 1:
-                logger.info(
-                    "Scheduled reconciliation run at cycle %d (every %d cycles)",
-                    self._cycle_count,
-                    self.reconciliation_interval,
-                )
+            if is_reconciliation:
+                if self._cycle_count > 1:
+                    logger.info(
+                        "Scheduled reconciliation run at cycle %d (every %d cycles)",
+                        self._cycle_count,
+                        self.reconciliation_interval,
+                    )
+                logger.info("Reconciliation run - performing proactive cookie verification...")
+                if not self.runner.token_manager.verify_cookies():
+                    logger.warning("Proactive cookie verification failed. Attempting token refresh...")
+                    try:
+                        self.runner.token_manager.refresh()
+                        logger.info("Token refreshed successfully proactively.")
+                    except Exception as exc:
+                        logger.error("Proactive token refresh failed: %s", exc)
 
-            next_run_ts = time.monotonic() + self.poll_interval
+            interval = self._jittered_interval()
+            next_run_ts = time.monotonic() + interval
             self._health.next_scheduled_run = datetime.fromtimestamp(
-                time.time() + self.poll_interval, tz=timezone.utc
+                time.time() + interval, tz=timezone.utc
             ).strftime("%Y-%m-%dT%H:%M:%SZ")
 
             await self._execute_cycle(reconciliation=is_reconciliation)
@@ -215,7 +219,10 @@ class Scheduler:
         run_ok = False
 
         try:
-            records, diff, entry = await self.runner.run(reconciliation=reconciliation)
+            records, diff, entry = await self.runner.run(
+                reconciliation=reconciliation,
+                stale_venues=self._health.stale_venues,
+            )
             run_ok = True
 
             self._health.total_runs += 1
@@ -278,6 +285,20 @@ class Scheduler:
                 f"Last error: {self.runner.token_manager.last_verify_error() or 'unknown'}"
             )
 
+        # Check for stale/carried-over venue-dates
+        max_stale = self.runner.config.monitor.max_stale_cycles
+        stale_list = []
+        for key, count in self._health.stale_venues.items():
+            if count > max_stale:
+                stale_list.append(f"{key} ({count} consecutive cycles)")
+
+        if stale_list:
+            should_alert = True
+            reason = (
+                f"The following venue/date pairs have been stale/carried-over for "
+                f"more than {max_stale} consecutive cycles: {', '.join(stale_list)}"
+            )
+
         if should_alert:
             alert_entry = AlertEntry(
                 timestamp=datetime.now(timezone.utc).isoformat(),
@@ -314,6 +335,11 @@ class Scheduler:
                     existing = []
 
             existing.append(entry.to_dict())
+
+            # Cap alerts log to the configured maximum count
+            limit = self.runner.config.monitor.alerts_file_max_count
+            if len(existing) > limit:
+                existing = existing[-limit:]
 
             content = json.dumps(existing, indent=2)
             tmp = self.alerts_path.with_suffix(".tmp")
