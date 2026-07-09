@@ -1,0 +1,16 @@
+[
+  {
+    "playz_turf_id": "playz_karve_nagar_pickleball",
+    "playo_venue_id": "ec7d2c4e-dc4a-434f-97ee-95cfd0f3c3a5",
+    "sport_code": "SP83",
+    "venue_name": "Kaizen Sports - Karve Nagar",
+    "sport_name": "Pickleball"
+  },
+  {
+    "playz_turf_id": "playz_picklebros_pickleball",
+    "playo_venue_id": "0bbb98c1-e7ec-493d-986f-bda798a7bd7b",
+    "sport_code": "SP83",
+    "venue_name": "The PickleBros Club - Shankar Seth Road",
+    "sport_name": "Pickleball"
+  }
+]

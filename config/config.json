@@ -1,0 +1,37 @@
+{
+  "monitor": {
+    "poll_interval_seconds": 300,
+    "startup_delay_seconds": 2.0,
+    "shutdown_timeout_seconds": 60.0,
+    "log_level": "INFO",
+    "log_dir": "logs",
+    "status_file": "monitor_data/status.json",
+    "latest_snapshot_file": "monitor_data/latest.json",
+    "latest_diff_file": "monitor_data/latest_diff.json"
+  },
+  "token": {
+    "file": "tokens/current_token.txt",
+    "max_age_seconds": 14400.0,
+    "refresh_script": "scripts/token_manager.py",
+    "cookies_file": "%USERPROFILE%\\Downloads\\playo.co_cookies.txt",
+    "api_base": "https://api.playo.io"
+  },
+  "fetch": {
+    "days_ahead": 3,
+    "max_concurrent": 3,
+    "request_delay_seconds": 0.8,
+    "max_retries": 3,
+    "retry_backoff_base_seconds": 2.0,
+    "timeout_seconds": 30.0
+  },
+  "backoff": {
+    "enabled": true,
+    "delays_seconds": [60, 120, 300, 600],
+    "reset_after_runs": 3
+  },
+  "snapshot": {
+    "keep_days": 30,
+    "history_dir": "monitor_data/history",
+    "max_count": 1000
+  }
+}

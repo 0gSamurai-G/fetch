@@ -1,0 +1,13 @@
+{
+  "last_successful_run": null,
+  "last_failed_run": null,
+  "last_run_result": null,
+  "token_age_seconds": 5220.888983011246,
+  "token_refresh_count": 0,
+  "consecutive_failures": 0,
+  "total_runs": 0,
+  "start_time": "2026-07-09T17:15:35Z",
+  "next_scheduled_run": null,
+  "current_status": "running",
+  "config_version": "1.0"
+}

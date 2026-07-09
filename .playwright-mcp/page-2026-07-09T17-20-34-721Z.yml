@@ -1,0 +1,83 @@
+- generic [active] [ref=e1]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - navigation [ref=e7]:
+        - generic [ref=e10]:
+          - link "playo-logo" [ref=e12] [cursor=pointer]:
+            - /url: /
+            - img "playo-logo" [ref=e15]
+          - generic [ref=e17]:
+            - button "Get the App" [ref=e18] [cursor=pointer]:
+              - generic [ref=e19]: Get the App
+            - generic [ref=e20] [cursor=pointer]: PLAY
+            - link "BOOK" [ref=e21] [cursor=pointer]:
+              - /url: /venues
+              - generic [ref=e22]: BOOK
+            - link "TRAIN" [ref=e23] [cursor=pointer]:
+              - /url: /trainer
+            - button "Login / Signup" [ref=e25] [cursor=pointer]:
+              - generic [ref=e27]:
+                - img [ref=e29]
+                - generic [ref=e32]: Login / Signup
+      - main [ref=e34]:
+        - generic [ref=e37]:
+          - generic [ref=e39]:
+            - heading "The PickleBros Club Shankar Seth Road" [level=1] [ref=e41]:
+              - text: The PickleBros Club
+              - generic [ref=e42]: Shankar Seth Road
+            - heading "Earn 3 karma points on every booking" [level=2] [ref=e43]
+            - generic [ref=e44]:
+              - heading "Sports" [level=3] [ref=e45]
+              - button "sport-icon Pickleball" [ref=e49] [cursor=pointer]:
+                - generic [ref=e51]:
+                  - img [ref=e53]
+                  - img "sport-icon" [ref=e54]
+                - generic [ref=e55]: Pickleball
+                - generic:
+                  - img
+              - heading "Date" [level=3] [ref=e56]
+              - button "2026-07-09" [ref=e59] [cursor=pointer]:
+                - generic [ref=e60]: 2026-07-09
+                - generic:
+                  - img
+              - heading "Start Time" [level=3] [ref=e61]
+              - button "11:00 PM" [ref=e64] [cursor=pointer]:
+                - generic [ref=e65]: 11:00 PM
+                - generic:
+                  - img
+              - heading "Duration" [level=3] [ref=e66]
+              - generic [ref=e70]:
+                - img [ref=e71] [cursor=pointer]
+                - generic [ref=e73]: 1 hr
+                - img [ref=e74] [cursor=pointer]
+              - heading "Court" [level=3] [ref=e76]
+              - button "--Select Court--" [ref=e80] [cursor=pointer]:
+                - generic [ref=e81]: "--Select Court--"
+                - generic:
+                  - img
+              - button "Add to Cart" [ref=e83]: Add To Cart
+          - generic [ref=e87]:
+            - generic [ref=e88]:
+              - img [ref=e90]
+              - img "logos-icons" [ref=e91] [cursor=pointer]
+            - generic [ref=e92]: Cart Is Empty
+      - generic:
+        - generic [ref=e93] [cursor=pointer]:
+          - generic [ref=e94]: Need help?
+          - generic [ref=e95]:
+            - img [ref=e97]
+            - img "maximize" [ref=e98]
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - generic [ref=e101]: Need help?
+            - generic [ref=e102]:
+              - img [ref=e104]
+              - img "minimize" [ref=e105] [cursor=pointer]
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - textbox "Name*" [ref=e108] [cursor=pointer]
+              - textbox "Mobile*" [ref=e110] [cursor=pointer]
+              - textbox "Email*" [ref=e111] [cursor=pointer]
+              - textbox "Query*" [ref=e112] [cursor=pointer]
+            - button "Submit Ticket" [ref=e114] [cursor=pointer]
+  - alert [ref=e115]

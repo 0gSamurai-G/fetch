@@ -1,0 +1,5 @@
+[     590ms] [LOG] 4. useWrappedStore created new store with {giapState: undefined, gspState: null, gsspState: null, gippState: null} @ https://playo.co/_next/static/chunks/pages/_app-b80bb1dac150a0a8.js:11
+[    1214ms] [LOG] ===> venueId {bookableData: Object} @ https://playo.co/_next/static/chunks/pages/_app-b80bb1dac150a0a8.js:11
+[    3576ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://o4507945646620672.ingest.de.sentry.io/api/4508012954255440/envelope/?sentry_version=7&sentry_key=72071d188080deba07ab5c6b1cd66ea3&sentry_client=sentry.javascript.nextjs%2F10.49.0:0
+[  189108ms] [ERROR] Access to fetch at 'https://api.playo.io/auth/login' from origin 'https://playo.co' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: It does not have HTTP ok status. @ https://playo.co/booking?venueId=ec7d2c4e-dc4a-434f-97ee-95cfd0f3c3a5:0
+[  189108ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://api.playo.io/auth/login:0
