@@ -145,6 +145,9 @@ class TokenConfig:
     max_age_seconds: float = 14400.0
     refresh_script: str = "scripts/token_manager.py"
     cookies_file: str = "%USERPROFILE%\\Downloads\\playo.co_cookies.txt"
+    storage_state_file: str = "tokens/storage_state.json"
+    silent_refresh_script: str = "scripts/refresh_token.py"
+    token_refresh_interval_hours: float = 6.0
     api_base: str = "https://api.playo.io"
 
 
@@ -304,13 +307,17 @@ class HealthStatus:
     last_run_result: str | None = None
     token_age_seconds: float | None = None
     token_refresh_count: int = 0
+    last_token_refresh_at: str | None = None
+    last_token_refresh_result: str | None = None  # "success" | "cookies_dead" | "error"
+    last_silent_token_refresh_at: str | None = None    # last successful silent (headless) refresh
+    last_silent_token_refresh_result: str | None = None  # "success" | "cookies_dead" | "error"
     consecutive_failures: int = 0
     schema_validation_failures: int = 0
     total_runs: int = 0
     start_time: str = ""
     next_scheduled_run: str | None = None
     current_status: str = "starting"
-    config_version: str = "2.0"
+    config_version: str = "2.1"
     stale_venues: dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -320,6 +327,9 @@ class HealthStatus:
     def from_dict(cls, d: dict[str, Any]) -> HealthStatus:
         d2 = dict(d)
         d2.pop("config_version", None)
+        # Strip any keys not in this dataclass (forward-compat for older status.json)
+        known = {f.name for f in cls.__dataclass_fields__.values()}  # type: ignore[attr-defined]
+        d2 = {k: v for k, v in d2.items() if k in known}
         return cls(**d2)
 
 

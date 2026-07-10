@@ -74,6 +74,18 @@ def load_token_config(raw: dict) -> TokenConfig:
         cookies_file=os.path.expandvars(
             _get_env_str("FETCH_COOKIES_FILE", t.get("cookies_file", "%USERPROFILE%\\Downloads\\playo.co_cookies.txt"))
         ),
+        storage_state_file=_get_env_str(
+            "FETCH_STORAGE_STATE_FILE",
+            t.get("storage_state_file", "tokens/storage_state.json"),
+        ),
+        silent_refresh_script=_get_env_str(
+            "FETCH_SILENT_REFRESH_SCRIPT",
+            t.get("silent_refresh_script", "scripts/refresh_token.py"),
+        ),
+        token_refresh_interval_hours=_get_env_float(
+            "FETCH_TOKEN_REFRESH_INTERVAL_HOURS",
+            t.get("token_refresh_interval_hours", 6.0),
+        ),
         api_base=_get_env_str("PLAYO_API_BASE", t.get("api_base", "https://api.playo.io")),
     )
 
@@ -135,6 +147,8 @@ def validate_config(cfg: Config) -> None:
     # TokenConfig validation
     if cfg.token.max_age_seconds <= 0:
         raise ValueError(f"token max_age_seconds must be > 0, got {cfg.token.max_age_seconds}")
+    if cfg.token.token_refresh_interval_hours <= 0:
+        raise ValueError(f"token token_refresh_interval_hours must be > 0, got {cfg.token.token_refresh_interval_hours}")
 
     # FetchConfig validation
     if cfg.fetch.days_ahead <= 0:

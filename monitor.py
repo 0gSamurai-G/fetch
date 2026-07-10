@@ -202,9 +202,7 @@ def main() -> None:
         token_age_seconds=age,
     ).to_dict(), indent=2))
 
-    # Register signal handlers
-    signal.signal(signal.SIGINT,  _sigint_handler)
-    signal.signal(signal.SIGTERM, _sigint_handler)
+    # Note: signal handlers are registered inside scheduler.start() (cross-platform)
 
     # Startup reconciliation: run once before entering the scheduler loop
     # to establish a full baseline state (no spurious diffs on first cycle)
@@ -234,6 +232,8 @@ def main() -> None:
         health_file_path=health_path,
         alerts_file_path=alerts_path,
         shutdown=_shutdown,
+        token_refresh_interval_hours=cfg.token.token_refresh_interval_hours,
+        project_root=_PROJECT_ROOT,
     )
 
     print(
@@ -244,6 +244,8 @@ def main() -> None:
         f"  Poll interval   {cfg.monitor.poll_interval_seconds}s"
         f" (+/- {cfg.monitor.poll_interval_jitter_fraction * 100:.0f}% jitter)\n"
         f"  Reconciliation  every {cfg.monitor.reconciliation_interval_cycles} cycles\n"
+        f"  Token refresh   every {cfg.token.token_refresh_interval_hours:.1f}h (silent, headless)\n"
+        f"  Storage state   {_PROJECT_ROOT / cfg.token.storage_state_file}\n"
         f"  Logs            {log_dir}\n"
         f"  Health file     {health_path}\n"
         f"  Alerts file     {alerts_path}\n"

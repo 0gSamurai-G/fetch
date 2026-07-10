@@ -37,6 +37,9 @@ from .runner import Runner
 
 logger = logging.getLogger("monitor.scheduler")
 
+# Exit code returned by scripts/refresh_token.py when session is dead
+_REFRESH_EXIT_COOKIES_DEAD = 2
+
 
 class GracefulShutdown:
     """
@@ -93,6 +96,8 @@ class Scheduler:
         health_file_path: Path,
         alerts_file_path: Path,
         shutdown: GracefulShutdown,
+        token_refresh_interval_hours: float = 6.0,
+        project_root: Path | None = None,
     ) -> None:
         self.runner = runner
         self.poll_interval = poll_interval_seconds
@@ -106,6 +111,8 @@ class Scheduler:
         self.health_path = health_file_path
         self.alerts_path = alerts_file_path
         self.shutdown = shutdown
+        self.token_refresh_interval_seconds = token_refresh_interval_hours * 3600
+        self.project_root = project_root or health_file_path.parent.parent
 
         self._cycle_count = 0
         self._health = HealthStatus(
@@ -127,23 +134,47 @@ class Scheduler:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self._on_signal, sig)
+        try:
+            # Unix only — raises NotImplementedError on Windows
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                loop.add_signal_handler(sig, self._on_signal, sig)
+        except NotImplementedError:
+            # Windows fallback: use signal.signal() on the main thread
+            def _make_handler(s: signal.Signals):
+                def _h(signum: int, frame: object) -> None:
+                    self._on_signal(s)
+                return _h
+
+            signal.signal(signal.SIGINT, _make_handler(signal.SIGINT))
+            if hasattr(signal, "SIGTERM"):
+                try:
+                    signal.signal(signal.SIGTERM, _make_handler(signal.SIGTERM))
+                except (OSError, ValueError):
+                    pass  # SIGTERM not reliably available on Windows
 
         logger.info(
             "Scheduler starting - poll_interval=%ds jitter=%.1f%% startup_delay=%.1fs "
-            "reconciliation_every=%d cycles",
+            "reconciliation_every=%d cycles token_refresh_every=%.1fh",
             self.poll_interval,
             self.poll_interval_jitter_fraction * 100,
             self.startup_delay,
             self.reconciliation_interval,
+            self.token_refresh_interval_seconds / 3600,
         )
 
         try:
-            loop.run_until_complete(self._run_loop())
+            loop.run_until_complete(self._run_all())
         finally:
             loop.close()
             logger.info("Scheduler loop exited")
+
+    async def _run_all(self) -> None:
+        """Run the main fetch loop and the background token refresh loop concurrently."""
+        await asyncio.gather(
+            self._run_loop(),
+            self._token_refresh_loop(),
+            return_exceptions=True,
+        )
 
     async def _run_loop(self) -> None:
         """Main scheduler loop - runs until shutdown is requested."""
@@ -418,3 +449,112 @@ class Scheduler:
     def _on_signal(self, sig: signal.Signals) -> None:
         logger.info("Received %s - initiating graceful shutdown", sig.name)
         self.shutdown.request()
+
+    # ── Background token refresh loop ─────────────────────────────────────────
+
+    async def _token_refresh_loop(self) -> None:
+        """
+        Run scripts/refresh_token.py every token_refresh_interval_seconds,
+        independently of the main slot-fetch cycle.
+
+        On success: update health fields last_silent_token_refresh_at / _result.
+        On cookies-dead (exit code 2): write AlertEntry to alerts.json and log
+        at ERROR level.
+        """
+        refresh_script = self.project_root / "scripts" / "refresh_token.py"
+
+        if not refresh_script.exists():
+            logger.warning(
+                "Silent refresh script not found at %s — background token refresh disabled.",
+                refresh_script,
+            )
+            return
+
+        # Run the first refresh shortly after startup (15s delay), then every N hours.
+        # This ensures the token is fresh right from the start without waiting N hours.
+        first_run_delay = 15.0
+        logger.info(
+            "Token refresh loop starting — first run in %.0fs, then every %.1fh",
+            first_run_delay,
+            self.token_refresh_interval_seconds / 3600,
+        )
+
+        await self._interruptible_sleep(first_run_delay)
+
+        while not self.shutdown.is_requested:
+            await self._run_one_token_refresh(refresh_script)
+            await self._interruptible_sleep(self.token_refresh_interval_seconds)
+
+    async def _interruptible_sleep(self, total_seconds: float) -> None:
+        """Sleep for total_seconds but wake up every 5s to check shutdown flag."""
+        end = time.monotonic() + total_seconds
+        while time.monotonic() < end and not self.shutdown.is_requested:
+            await asyncio.sleep(min(5.0, end - time.monotonic()))
+
+    async def _run_one_token_refresh(self, refresh_script: Path) -> None:
+        """Invoke refresh_token.py as an async subprocess and handle its exit code."""
+        logger.info("Running silent token refresh: %s", refresh_script)
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable,
+                str(refresh_script),
+                "--project-root", str(self.project_root),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(self.project_root),
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+        except asyncio.TimeoutError:
+            logger.error("Silent token refresh timed out after 120s")
+            self._health.last_silent_token_refresh_result = "error"
+            self._save_health()
+            return
+        except Exception as exc:
+            logger.error("Failed to launch refresh script: %s", exc)
+            self._health.last_silent_token_refresh_result = "error"
+            self._save_health()
+            return
+
+        # Log subprocess output at debug level
+        if stdout:
+            for line in stdout.decode(errors="replace").splitlines():
+                logger.debug("[refresh_token] %s", line)
+        if stderr:
+            for line in stderr.decode(errors="replace").splitlines():
+                logger.debug("[refresh_token stderr] %s", line)
+
+        exit_code = proc.returncode
+
+        if exit_code == 0:
+            logger.info("Silent token refresh succeeded")
+            self._health.last_silent_token_refresh_at = now_iso
+            self._health.last_silent_token_refresh_result = "success"
+            self._save_health()
+
+        elif exit_code == _REFRESH_EXIT_COOKIES_DEAD:
+            msg = (
+                "Playo session expired — run "
+                "scripts/token_manager.py --interactive-login to reauthenticate."
+            )
+            logger.error(msg)
+            self._health.last_silent_token_refresh_result = "cookies_dead"
+            self._save_health()
+
+            alert = AlertEntry(
+                timestamp=now_iso,
+                reason=msg,
+                severity="error",
+                run_id="token_refresh",
+                consecutive_failures=self._health.consecutive_failures,
+                current_status=self._health.current_status,
+            )
+            self._append_alert(alert)
+
+        else:
+            logger.error(
+                "Silent token refresh exited with unexpected code %d", exit_code
+            )
+            self._health.last_silent_token_refresh_result = "error"
+            self._save_health()

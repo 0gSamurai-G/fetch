@@ -1,0 +1,69 @@
+{
+  "cookies": [
+    {
+      "name": "_fbp",
+      "value": "fb.1.1783654762962.824688416985393021",
+      "domain": ".playo.co",
+      "path": "/",
+      "expires": 1791432035,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga",
+      "value": "GA1.1.1407117963.1783654764",
+      "domain": ".playo.co",
+      "path": "/",
+      "expires": 1818216036.147702,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "_ga_16ZBH4C91C",
+      "value": "GS2.1.s1783654763$o1$g1$t1783656036$j60$l0$h1147362270",
+      "domain": ".playo.co",
+      "path": "/",
+      "expires": 1818216036.146895,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://playo.co",
+      "localStorage": [
+        {
+          "name": "lr_ft_traffic_source_type",
+          "value": "direct"
+        },
+        {
+          "name": "lr_ft_fbp",
+          "value": "fb.1.1783654762962.824688416985393021"
+        },
+        {
+          "name": "lastExternalReferrer",
+          "value": "empty"
+        },
+        {
+          "name": "lastExternalReferrerTime",
+          "value": "1783656035694"
+        },
+        {
+          "name": "lr_fbp",
+          "value": "{\"v\":\"fb.1.1783654762962.824688416985393021\",\"t\":1783656035728}"
+        },
+        {
+          "name": "lr_vid",
+          "value": "29aa9374-5415-4150-aa32-4fd2bfffcd81"
+        },
+        {
+          "name": "lr_ft_traffic_source_name",
+          "value": "direct"
+        }
+      ]
+    }
+  ]
+}

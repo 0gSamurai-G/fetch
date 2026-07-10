@@ -1,13 +1,19 @@
 {
-  "last_successful_run": null,
+  "last_successful_run": "2026-07-10T04:10:30Z",
   "last_failed_run": null,
-  "last_run_result": null,
-  "token_age_seconds": 5220.888983011246,
+  "last_run_result": "success",
+  "token_age_seconds": 591.116658449173,
   "token_refresh_count": 0,
+  "last_token_refresh_at": null,
+  "last_token_refresh_result": null,
+  "last_silent_token_refresh_at": "2026-07-10T04:00:26.007648+00:00",
+  "last_silent_token_refresh_result": "success",
   "consecutive_failures": 0,
-  "total_runs": 0,
-  "start_time": "2026-07-09T17:15:35Z",
-  "next_scheduled_run": null,
+  "schema_validation_failures": 0,
+  "total_runs": 3,
+  "start_time": "2026-07-10T04:00:11Z",
+  "next_scheduled_run": "2026-07-10T04:15:40Z",
   "current_status": "running",
-  "config_version": "1.0"
+  "config_version": "2.1",
+  "stale_venues": {}
 }

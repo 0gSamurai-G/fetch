@@ -1,2 +1,195 @@
 2026-07-09T22:45:35 INFO     monitor              Monitor starting — 3 venue(s) loaded
 2026-07-09T22:45:35 INFO     monitor              Token ready (age: 5221s)
+2026-07-10T07:48:59 INFO     monitor              Monitor starting - 2 venue(s) loaded
+2026-07-10T07:48:59 INFO     monitor.token        Token is 37825s old (max 14400s) - refreshing
+2026-07-10T07:48:59 INFO     monitor.token        Refreshing Playo auth token via Playwright (cookies: C:\Users\srdes\Downloads\playo.co_cookies.txt)
+2026-07-10T07:48:59 ERROR    monitor.token        Token refresh stderr: 
+2026-07-10T09:06:46 INFO     monitor              Monitor starting - 2 venue(s) loaded
+2026-07-10T09:06:46 INFO     monitor              Token ready (age: 30s)
+2026-07-10T09:06:46 INFO     monitor              Performing proactive startup cookie verification...
+2026-07-10T09:06:47 INFO     monitor              Running startup reconciliation...
+2026-07-10T09:06:47 INFO     monitor.runner       [run 92746305] Starting poll - 2 venues x 3 days (token age: 30s) [RECONCILIATION]
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:06:47 INFO     monitor.runner       [run 92746305] Done [RECONCILIATION] in 0.2s | slots=0 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:06:47 INFO     monitor              Startup reconciliation complete
+2026-07-10T09:06:47 INFO     monitor              Monitor initialised — venues=2 poll_interval=300s
+2026-07-10T09:08:56 INFO     monitor              Monitor starting - 2 venue(s) loaded
+2026-07-10T09:08:56 INFO     monitor              Token ready (age: 159s)
+2026-07-10T09:08:56 INFO     monitor              Performing proactive startup cookie verification...
+2026-07-10T09:08:56 INFO     monitor              Running startup reconciliation...
+2026-07-10T09:08:56 INFO     monitor.runner       [run 3330408b] Starting poll - 2 venues x 3 days (token age: 160s) [RECONCILIATION]
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:56 INFO     monitor.runner       [run 3330408b] Done [RECONCILIATION] in 0.2s | slots=0 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:08:56 INFO     monitor              Startup reconciliation complete
+2026-07-10T09:08:56 INFO     monitor              Monitor initialised — venues=2 poll_interval=300s
+2026-07-10T09:08:56 INFO     monitor.scheduler    Scheduler starting - poll_interval=300s jitter=10.0% startup_delay=2.0s reconciliation_every=12 cycles token_refresh_every=6.0h
+2026-07-10T09:08:56 INFO     monitor.scheduler    Token refresh loop starting — first run in 15s, then every 6.0h
+2026-07-10T09:08:58 INFO     monitor.scheduler    Reconciliation run - performing proactive cookie verification...
+2026-07-10T09:08:59 INFO     monitor.runner       [run 7fc8fc9c] Starting poll - 2 venues x 3 days (token age: 162s) [RECONCILIATION]
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:08:59 INFO     monitor.runner       [run 7fc8fc9c] Done [RECONCILIATION] in 0.1s | slots=0 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:08:59 INFO     monitor.scheduler    [run 7fc8fc9c] result=reconciliation venues=2 slots=0 duration=0.1s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 0} reconciliation=True
+2026-07-10T09:08:59 WARNING  monitor.scheduler    ALERT written to D:\my codes\Fetch - Bookings\fetch\monitor_data\alerts.json: [warning] Schema validation failures (6) crossed threshold (3)
+2026-07-10T09:09:11 INFO     monitor.scheduler    Running silent token refresh: D:\my codes\Fetch - Bookings\fetch\scripts\refresh_token.py
+2026-07-10T09:09:27 INFO     monitor.scheduler    Silent token refresh succeeded
+2026-07-10T09:13:38 INFO     monitor.runner       [run d0166f05] Starting poll - 2 venues x 3 days (token age: 252s)
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:13:39 INFO     monitor.runner       [run d0166f05] Done in 0.2s | slots=0 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:13:39 ERROR    monitor.scheduler    [run d0166f05] result=failed       venues=2 slots=0 duration=0.2s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 0} reconciliation=False
+2026-07-10T09:13:39 WARNING  monitor.scheduler    ALERT written to D:\my codes\Fetch - Bookings\fetch\monitor_data\alerts.json: [warning] Schema validation failures (6) crossed threshold (3)
+2026-07-10T09:18:37 INFO     monitor.runner       [run f1fa98b4] Starting poll - 2 venues x 3 days (token age: 550s)
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for Kaizen Sports - Karve Nagar SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Schema validation failed for The PickleBros Club - Shankar Seth Road SP83: missing required field 'courtInfo'
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for Kaizen Sports - Karve Nagar [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-10] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-11] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 WARNING  monitor.runner       Fetch failed for The PickleBros Club - Shankar Seth Road [2026-07-12] and no previous snapshot records exist to carry over.
+2026-07-10T09:18:37 INFO     monitor.runner       [run f1fa98b4] Done in 0.2s | slots=0 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:18:37 ERROR    monitor.scheduler    [run f1fa98b4] result=failed       venues=2 slots=0 duration=0.2s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 0} reconciliation=False
+2026-07-10T09:18:37 WARNING  monitor.scheduler    ALERT written to D:\my codes\Fetch - Bookings\fetch\monitor_data\alerts.json: [warning] Schema validation failures (6) crossed threshold (3)
+2026-07-10T09:18:47 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:47 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:48 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:48 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:48 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:48 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:49 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:49 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:49 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:49 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:49 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:49 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:50 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:18:50 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:18:52 INFO     monitor.scheduler    Scheduler loop exited
+2026-07-10T09:18:52 INFO     monitor              Monitor stopped cleanly
+2026-07-10T09:19:00 INFO     monitor              Monitor starting - 2 venue(s) loaded
+2026-07-10T09:19:00 INFO     monitor              Token ready (age: 573s)
+2026-07-10T09:19:00 INFO     monitor              Performing proactive startup cookie verification...
+2026-07-10T09:19:00 INFO     monitor              Running startup reconciliation...
+2026-07-10T09:19:00 INFO     monitor.runner       [run 16e28788] Starting poll - 2 venues x 3 days (token age: 573s) [RECONCILIATION]
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-10].
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-11].
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-12].
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-10].
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-11].
+2026-07-10T09:19:00 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-12].
+2026-07-10T09:19:00 INFO     monitor.runner       [run 16e28788] Done [RECONCILIATION] in 0.1s | slots=270 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:19:00 INFO     monitor              Startup reconciliation complete
+2026-07-10T09:19:00 INFO     monitor              Monitor initialised — venues=2 poll_interval=300s
+2026-07-10T09:19:00 INFO     monitor.scheduler    Scheduler starting - poll_interval=300s jitter=10.0% startup_delay=2.0s reconciliation_every=12 cycles token_refresh_every=6.0h
+2026-07-10T09:19:00 INFO     monitor.scheduler    Token refresh loop starting — first run in 15s, then every 6.0h
+2026-07-10T09:19:02 INFO     monitor.scheduler    Reconciliation run - performing proactive cookie verification...
+2026-07-10T09:19:02 INFO     monitor.runner       [run 9dcc5da5] Starting poll - 2 venues x 3 days (token age: 575s) [RECONCILIATION]
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-10].
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-11].
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-12].
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-10].
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-11].
+2026-07-10T09:19:02 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-12].
+2026-07-10T09:19:02 INFO     monitor.runner       [run 9dcc5da5] Done [RECONCILIATION] in 0.2s | slots=270 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:19:02 INFO     monitor.scheduler    [run 9dcc5da5] result=reconciliation venues=2 slots=270 duration=0.2s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 270} reconciliation=True
+2026-07-10T09:19:15 INFO     monitor.scheduler    Running silent token refresh: D:\my codes\Fetch - Bookings\fetch\scripts\refresh_token.py
+2026-07-10T09:19:31 INFO     monitor.scheduler    Silent token refresh succeeded
+2026-07-10T09:23:49 INFO     monitor.runner       [run 9f5491bd] Starting poll - 2 venues x 3 days (token age: 259s)
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-10].
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-11].
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-12].
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-10].
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-11].
+2026-07-10T09:23:49 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-12].
+2026-07-10T09:23:49 INFO     monitor.runner       [run 9f5491bd] Done in 0.2s | slots=270 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:23:49 INFO     monitor.scheduler    [run 9f5491bd] result=success      venues=2 slots=270 duration=0.2s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 270} reconciliation=False
+2026-07-10T09:29:09 INFO     monitor.runner       [run a8811a82] Starting poll - 2 venues x 3 days (token age: 579s)
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-10].
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-11].
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 72 slot records for Kaizen Sports - Karve Nagar [2026-07-12].
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-10].
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-11].
+2026-07-10T09:29:09 INFO     monitor.runner       Successfully fetched 18 slot records for The PickleBros Club - Shankar Seth Road [2026-07-12].
+2026-07-10T09:29:09 INFO     monitor.runner       [run a8811a82] Done in 0.2s | slots=270 booked=0 | diff: +booked=0 +free=0
+2026-07-10T09:29:09 INFO     monitor.scheduler    [run a8811a82] result=success      venues=2 slots=270 duration=0.2s retries=0 token_refreshed=False changes={'newly_booked': 0, 'newly_free': 0, 'unchanged': 270} reconciliation=False
+2026-07-10T09:30:03 INFO     monitor.scheduler    Received SIGINT - initiating graceful shutdown
+2026-07-10T09:30:03 INFO     monitor.scheduler    Shutdown requested - finishing current cycle then exiting
+2026-07-10T09:30:07 INFO     monitor.scheduler    Scheduler loop exited
+2026-07-10T09:30:07 INFO     monitor              Monitor stopped cleanly

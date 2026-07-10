@@ -298,10 +298,27 @@ class _VenueFetchTask:
                     resp.raise_for_status()
 
                     raw = resp.json()
-                    raw["fetched_at"] = resp.headers.get(
+                    fetched_at = resp.headers.get(
                         "date",
                         datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                     )
+
+                    # Playo API wraps payload in {requestStatus, message, data}
+                    # Unwrap the inner data dict before validation/parsing.
+                    if isinstance(raw, dict) and "data" in raw:
+                        if raw.get("requestStatus") not in (1, None):
+                            logger.warning(
+                                "Non-success requestStatus=%s for %s %s: %s",
+                                raw.get("requestStatus"),
+                                self.venue.venue_name,
+                                self.venue.sport_code,
+                                raw.get("message", ""),
+                            )
+                            self.schema_validation_failures += 1
+                            return
+                        raw = raw["data"]
+
+                    raw["fetched_at"] = fetched_at
 
                     valid, reason = _validate_playo_response(raw)
                     if not valid:

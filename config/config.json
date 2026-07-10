@@ -19,6 +19,9 @@
     "max_age_seconds": 14400.0,
     "refresh_script": "scripts/token_manager.py",
     "cookies_file": "%USERPROFILE%\\Downloads\\playo.co_cookies.txt",
+    "storage_state_file": "tokens/storage_state.json",
+    "silent_refresh_script": "scripts/refresh_token.py",
+    "token_refresh_interval_hours": 1.0,
     "api_base": "https://api.playo.io"
   },
   "fetch": {
