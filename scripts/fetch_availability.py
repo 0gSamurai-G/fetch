@@ -285,7 +285,8 @@ async def fetch_all(cfg: dict, venues: list[dict]) -> tuple[list[dict], list[dic
     Returns (fresh_records, venue_config_per_record).
     """
     days = cfg["fetch"]["days_ahead"]
-    today = date.today()
+    kolkata_tz = timezone(timedelta(hours=5, minutes=30))
+    today = datetime.now(kolkata_tz).date()
     dates = date_range(today, days)
 
     token = load_token()
@@ -356,6 +357,7 @@ async def run():
 
     cookies_path = os.path.expandvars(cfg["playo"]["cookies_file"])
 
+    kolkata_tz = timezone(timedelta(hours=5, minutes=30))
     if args.force_refresh_token or not TOKEN_FILE.exists():
         token = refresh_token(cookies_path)
     else:
@@ -365,7 +367,7 @@ async def run():
             async with httpx.AsyncClient(headers={**REQUEST_HEADERS, "authorization": token}, timeout=10) as c:
                 r = await c.get(
                     f"{cfg['playo']['api_base']}/booking-lab-public/availability/v1"
-                    f"/{venues[0]['playo_venue_id']}/{venues[0]['sport_code']}/{date.today().isoformat()}"
+                    f"/{venues[0]['playo_venue_id']}/{venues[0]['sport_code']}/{datetime.now(kolkata_tz).date().isoformat()}"
                 )
                 if r.status_code in (401, 403):
                     print("Token rejected by API. Refreshing...")
@@ -382,7 +384,7 @@ async def run():
         print("WARNING: No records fetched. Check your auth token and venue IDs.")
         return
 
-    snapshot_path = output_dir / f"snapshot_{date.today().isoformat()}_{uuid.uuid4().hex[:8]}.json"
+    snapshot_path = output_dir / f"snapshot_{datetime.now(kolkata_tz).date().isoformat()}_{uuid.uuid4().hex[:8]}.json"
     diff_path = output_dir / "diff_latest.json"
 
     if args.check:

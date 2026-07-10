@@ -60,6 +60,8 @@ def load_monitor_config(raw: dict) -> MonitorConfig:
         alerts_file=_get_env_str("FETCH_ALERTS_FILE", m.get("alerts_file", "monitor_data/alerts.json")),
         consecutive_failures_alert_threshold=_get_env_int("FETCH_ALERT_FAILURES", m.get("consecutive_failures_alert_threshold", 5)),
         schema_validation_alert_threshold=_get_env_int("FETCH_ALERT_SCHEMA", m.get("schema_validation_alert_threshold", 3)),
+        alerts_file_max_count=_get_env_int("FETCH_ALERTS_MAX_COUNT", m.get("alerts_file_max_count", 100)),
+        max_stale_cycles=_get_env_int("FETCH_MAX_STALE_CYCLES", m.get("max_stale_cycles", 5)),
     )
 
 
@@ -109,6 +111,60 @@ def load_snapshot_config(raw: dict) -> SnapshotConfig:
     )
 
 
+def validate_config(cfg: Config) -> None:
+    # MonitorConfig validation
+    if cfg.monitor.poll_interval_seconds <= 0:
+        raise ValueError(f"poll_interval_seconds must be > 0, got {cfg.monitor.poll_interval_seconds}")
+    if not (0.0 <= cfg.monitor.poll_interval_jitter_fraction <= 1.0):
+        raise ValueError(f"poll_interval_jitter_fraction must be in [0.0, 1.0], got {cfg.monitor.poll_interval_jitter_fraction}")
+    if cfg.monitor.startup_delay_seconds < 0:
+        raise ValueError(f"startup_delay_seconds must be >= 0, got {cfg.monitor.startup_delay_seconds}")
+    if cfg.monitor.shutdown_timeout_seconds < 0:
+        raise ValueError(f"shutdown_timeout_seconds must be >= 0, got {cfg.monitor.shutdown_timeout_seconds}")
+    if cfg.monitor.reconciliation_interval_cycles < 0:
+        raise ValueError(f"reconciliation_interval_cycles must be >= 0, got {cfg.monitor.reconciliation_interval_cycles}")
+    if cfg.monitor.consecutive_failures_alert_threshold < 0:
+        raise ValueError(f"consecutive_failures_alert_threshold must be >= 0, got {cfg.monitor.consecutive_failures_alert_threshold}")
+    if cfg.monitor.schema_validation_alert_threshold < 0:
+        raise ValueError(f"schema_validation_alert_threshold must be >= 0, got {cfg.monitor.schema_validation_alert_threshold}")
+    if cfg.monitor.alerts_file_max_count <= 0:
+        raise ValueError(f"alerts_file_max_count must be > 0, got {cfg.monitor.alerts_file_max_count}")
+    if cfg.monitor.max_stale_cycles < 0:
+        raise ValueError(f"max_stale_cycles must be >= 0, got {cfg.monitor.max_stale_cycles}")
+
+    # TokenConfig validation
+    if cfg.token.max_age_seconds <= 0:
+        raise ValueError(f"token max_age_seconds must be > 0, got {cfg.token.max_age_seconds}")
+
+    # FetchConfig validation
+    if cfg.fetch.days_ahead <= 0:
+        raise ValueError(f"days_ahead must be > 0, got {cfg.fetch.days_ahead}")
+    if cfg.fetch.max_concurrent <= 0:
+        raise ValueError(f"max_concurrent must be > 0, got {cfg.fetch.max_concurrent}")
+    if cfg.fetch.request_delay_seconds < 0:
+        raise ValueError(f"request_delay_seconds must be >= 0, got {cfg.fetch.request_delay_seconds}")
+    if cfg.fetch.max_retries < 0:
+        raise ValueError(f"max_retries must be >= 0, got {cfg.fetch.max_retries}")
+    if cfg.fetch.retry_backoff_base_seconds < 0:
+        raise ValueError(f"retry_backoff_base_seconds must be >= 0, got {cfg.fetch.retry_backoff_base_seconds}")
+    if cfg.fetch.timeout_seconds <= 0:
+        raise ValueError(f"timeout_seconds must be > 0, got {cfg.fetch.timeout_seconds}")
+
+    # BackoffConfig validation
+    if any(d <= 0 for d in cfg.backoff.delays_seconds):
+        raise ValueError(f"backoff delays_seconds must all be > 0, got {cfg.backoff.delays_seconds}")
+    if cfg.backoff.reset_after_runs <= 0:
+        raise ValueError(f"backoff reset_after_runs must be > 0, got {cfg.backoff.reset_after_runs}")
+
+    # SnapshotConfig validation
+    if cfg.snapshot.keep_days < 0:
+        raise ValueError(f"snapshot keep_days must be >= 0, got {cfg.snapshot.keep_days}")
+    if cfg.snapshot.max_count < 0:
+        raise ValueError(f"snapshot max_count must be >= 0, got {cfg.snapshot.max_count}")
+    if cfg.snapshot.rollup_retention_days < 0:
+        raise ValueError(f"snapshot rollup_retention_days must be >= 0, got {cfg.snapshot.rollup_retention_days}")
+
+
 def load_config(config_path: Path | None = None) -> Config:
     if config_path is None:
         config_path = DEFAULT_CONFIG_DIR / "config.json"
@@ -116,13 +172,15 @@ def load_config(config_path: Path | None = None) -> Config:
     with open(config_path) as f:
         raw = json.load(f)
 
-    return Config(
+    cfg = Config(
         monitor=load_monitor_config(raw),
         token=load_token_config(raw),
         fetch=load_fetch_config(raw),
         backoff=load_backoff_config(raw),
         snapshot=load_snapshot_config(raw),
     )
+    validate_config(cfg)
+    return cfg
 
 
 def load_venues(venues_path: Path | None = None) -> list[Venue]:
